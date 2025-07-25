@@ -56,6 +56,13 @@ pip install -r requirements.txt
 
 3. **Configure API Keys**
 
+**Option A: Using .env file (Recommended)**
+```bash
+cp .env.example .env
+# Edit .env and add your Gemini API keys
+```
+
+**Option B: Direct configuration**
 Edit `config.py` and add your Gemini API keys:
 ```python
 GEMINI_API_KEYS = [
