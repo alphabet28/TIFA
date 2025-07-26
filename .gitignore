@@ -179,11 +179,11 @@ cython_debug/
 
 # Project specific files
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-threat_intel.db
+# Database files (comment out to include sample data)
+# *.db
+# *.sqlite
+# *.sqlite3
+# threat_intel.db
 
 # API Keys and sensitive config
 config_local.py
