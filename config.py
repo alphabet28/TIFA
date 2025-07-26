@@ -1,177 +1,160 @@
 """
-Configuration settings for the Threat Intelligence Aggregator
+Elite Threat Intelligence Feed Aggregator Configuration
+World-Class Enterprise Grade Platform for International Hackathon Competition
 """
-
 import os
+import random
 from typing import List, Dict
-from pathlib import Path
-
-# Load environment variables from .env file
-def load_env_file():
-    """Load environment variables from .env file if it exists"""
-    env_file = Path(__file__).parent / '.env'
-    if env_file.exists():
-        with open(env_file, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    # Remove quotes if present
-                    value = value.strip('"\'')
-                    os.environ[key] = value
-
-# Load .env file
-load_env_file()
+from dotenv import load_dotenv
 
 class Config:
-    """Configuration settings for the Threat Intelligence Aggregator"""
-    
-    # RSS/Atom feeds for threat intelligence
-    THREAT_FEEDS = [
-        {
-            'name': 'US-CERT CISA',
-            'url': 'https://www.cisa.gov/cybersecurity-advisories/all.xml',
-            'type': 'rss'
-        },
-        {
-            'name': 'SANS Internet Storm Center',
-            'url': 'https://isc.sans.edu/rssfeed.xml',
-            'type': 'rss'
-        },
-        {
-            'name': 'Krebs on Security',
-            'url': 'https://krebsonsecurity.com/feed/',
-            'type': 'rss'
-        },
-        {
-            'name': 'Malware Bytes Labs',
-            'url': 'https://blog.malwarebytes.com/feed/',
-            'type': 'rss'
-        },
-        {
-            'name': 'Threat Post',
-            'url': 'https://threatpost.com/feed/',
-            'type': 'rss'
-        }
-    ]
-    
-    # IOC extraction patterns
-    IOC_PATTERNS = {
-        'ip_addresses': r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b',
-        'domains': r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b',
-        'urls': r'https?://(?:[-\w.])+(?:[:\d]+)?(?:/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:[\w.])*)?)?',
-        'md5_hashes': r'\b[a-fA-F0-9]{32}\b',
-        'sha1_hashes': r'\b[a-fA-F0-9]{40}\b',
-        'sha256_hashes': r'\b[a-fA-F0-9]{64}\b',
-        'email_addresses': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-        'cve_ids': r'CVE-\d{4}-\d{4,7}',
-        'file_paths': r'(?:[A-Za-z]:\\|/)(?:[^\\/:*?"<>|\r\n]+[\\\/])*[^\\/:*?"<>|\r\n]*',
-    }
-    
-    # Database configuration
-    DATABASE_PATH = "threat_intel.db"
-    
-    # Threat keywords for tagging
-    THREAT_KEYWORDS = {
-        'malware', 'ransomware', 'phishing', 'apt', 'vulnerability', 'exploit',
-        'botnet', 'trojan', 'backdoor', 'rootkit', 'spyware', 'adware',
-        'ddos', 'mitm', 'injection', 'xss', 'csrf', 'rce', 'lfi', 'rfi',
-        'zero-day', 'patch', 'update', 'breach', 'leak', 'stolen', 'compromised'
-    }
-    
-    # Severity assessment keywords
-    HIGH_SEVERITY_KEYWORDS = ['critical', 'severe', 'urgent', 'zero-day', 'worm', 'ransomware']
-    MEDIUM_SEVERITY_KEYWORDS = ['vulnerability', 'exploit', 'malware', 'phishing']
-    
-    # Common domains to exclude from IOC extraction
-    EXCLUDE_DOMAINS = {
-        'github.com', 'twitter.com', 'facebook.com', 'google.com', 
-        'microsoft.com', 'apple.com', 'amazon.com', 'example.com',
-        'localhost', 'www.w3.org'
-    }
-    
-    # Application settings
-    APP_TITLE = os.getenv("APP_TITLE", "Threat Intelligence Feed Aggregator")
-    APP_DESCRIPTION = os.getenv("APP_DESCRIPTION", "AI-powered threat intelligence aggregation and analysis platform")
-    
-    # Server configuration
-    SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
-    SERVER_PORT = int(os.getenv("SERVER_PORT", "7860"))
-    
-    # Processing limits
-    MAX_ITEMS_PER_FEED = int(os.getenv("MAX_ITEMS_PER_FEED", "20"))
-    MAX_RECENT_THREATS = int(os.getenv("MAX_RECENT_THREATS", "50"))
-    MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "50"))
-    MAX_EXPORT_ITEMS = int(os.getenv("MAX_EXPORT_ITEMS", "100"))
-    
-    # Auto-refresh interval (seconds)
-    AUTO_REFRESH_INTERVAL = int(os.getenv("AUTO_REFRESH_INTERVAL", "300"))  # 5 minutes
-    
-    # Thread pool configuration
-    MAX_FEED_WORKERS = int(os.getenv("MAX_FEED_WORKERS", "5"))
-    
-    # Database configuration
-    DATABASE_PATH = os.getenv("DATABASE_PATH", "threat_intel.db")
-    
-    # AI Configuration - Google Gemini Integration
-    AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
-    
-    # Multiple API keys for rate limit handling - Load from environment
+    """Advanced configuration with enterprise-grade features and AI load balancing."""
+    load_dotenv()
+
+    # --- Multi-API Key Load Balancing System ---
     GEMINI_API_KEYS = [
-        key for key in [
-            os.getenv("GEMINI_API_KEY_1"),
-            os.getenv("GEMINI_API_KEY_2"),
-            os.getenv("GEMINI_API_KEY_3"),  # Optional third key
-            os.getenv("GEMINI_API_KEY_4"),  # Optional fourth key
-        ] if key  # Only include non-None keys
+        os.getenv("GEMINI_API_KEY_1"),
+        os.getenv("GEMINI_API_KEY_2")
     ]
     
-    # Fallback keys if environment variables are not set (for development)
-    if not GEMINI_API_KEYS:
-        import warnings
-        warnings.warn("No Gemini API keys found in environment variables. Using fallback configuration.")
-        GEMINI_API_KEYS = [
-            "AIzaSyDPqPeQvOq_YFJ5ThF75XYDKB7OO0qWPqg",
-            "AIzaSyBAk1wMBqJHQHQtX1aGxUTQFBNTRPiMYdY"
-        ]
+    # Filter out None values
+    GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
     
-    # Gemini model configuration (in order of preference - best to least)
-    GEMINI_MODELS = [
-        {
-            "name": "gemini-2.5-flash",
-            "rpm": 10,
-            "tpm": 250000,
-            "rpd": 250,
-            "priority": 1
-        },
-        {
-            "name": "gemini-2.5-flash-lite",
-            "rpm": 15,
-            "tpm": 250000,
-            "rpd": 1000,
-            "priority": 2
-        },
-        {
-            "name": "gemini-2.0-flash",
-            "rpm": 15,
-            "tpm": 1000000,
-            "rpd": 200,
-            "priority": 3
-        },
-        {
-            "name": "gemini-2.0-flash-lite",
-            "rpm": 30,
-            "tpm": 1000000,
-            "rpd": 200,
-            "priority": 4
-        }
+    # Advanced AI Model Options for Different Tasks
+    GEMINI_MODELS = {
+        "summary": "gemini-2.5-flash",      # Latest and fastest for summaries
+        "analysis": "gemini-2.5-flash-lite",          # Latest experimental for deep analysis
+        "classification": "gemini-2.0-flash-lite", # Quick classification
+        "correlation": "gemini-2.0-flash"        # Complex correlations
+    }
+
+    @classmethod
+    def get_random_api_key(cls) -> str:
+        """Returns a random API key for load balancing."""
+        return random.choice(cls.GEMINI_API_KEYS) if cls.GEMINI_API_KEYS else None
+
+    # --- Elite Threat Intelligence Sources ---
+    THREAT_FEEDS = [
+        # Government & Official Sources
+        {"name": "🏛️ US-CERT CISA", "url": "https://www.cisa.gov/cybersecurity-advisories/all.xml", "category": "government", "priority": "critical"},
+        {"name": "🏛️ NIST NVD", "url": "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml", "category": "government", "priority": "high"},
+        {"name": "🏛️ FBI IC3", "url": "https://www.ic3.gov/RSS/rss.xml", "category": "government", "priority": "critical"},
+        
+        # Premium Threat Intelligence
+        {"name": "🎯 SANS ISC", "url": "https://isc.sans.edu/rssfeed.xml", "category": "threat_intel", "priority": "high"},
+        {"name": "🎯 MITRE ATT&CK", "url": "https://attack.mitre.org/resources/updates/updates.xml", "category": "threat_intel", "priority": "critical"},
+        {"name": "🎯 AlienVault OTX", "url": "https://otx.alienvault.com/api/v1/pulses/subscribed", "category": "threat_intel", "priority": "high"},
+        
+        # Security Research & Blogs
+        {"name": "🔬 Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "category": "research", "priority": "medium"},
+        {"name": "🔬 MalwareBytes Labs", "url": "https://blog.malwarebytes.com/feed/", "category": "research", "priority": "medium"},
+        {"name": "🔬 ThreatPost", "url": "https://threatpost.com/feed/", "category": "news", "priority": "medium"},
+        {"name": "🔬 BleepingComputer", "url": "https://www.bleepingcomputer.com/feed/", "category": "news", "priority": "medium"},
+        {"name": "🔬 SecurityWeek", "url": "https://www.securityweek.com/rss", "category": "news", "priority": "medium"},
+        
+        # Vulnerability Databases
+        {"name": "🚨 Exploit-DB", "url": "https://www.exploit-db.com/rss.xml", "category": "exploits", "priority": "high"},
+        {"name": "🚨 VulnDB", "url": "https://vuldb.com/rss/?type=updates", "category": "vulnerabilities", "priority": "high"},
+        
+        # Dark Web & Underground
+        {"name": "🕵️ ThreatMiner", "url": "https://www.threatminer.org/rss.xml", "category": "darkweb", "priority": "high"},
+        {"name": "🕵️ HackerNews", "url": "https://thehackernews.com/feeds/posts/default", "category": "news", "priority": "medium"},
     ]
+
+    # --- Database Configuration ---
+    DB_PATH = os.getenv("DATABASE_PATH", "threat_intel.db")
     
-    # AI request configuration
-    AI_REQUEST_TIMEOUT = int(os.getenv("AI_REQUEST_TIMEOUT", "45"))  # Increased timeout
-    AI_MAX_RETRIES = int(os.getenv("AI_MAX_RETRIES", "5"))  # More retries
-    AI_RETRY_DELAY = int(os.getenv("AI_RETRY_DELAY", "1"))  # Shorter base delay
+    # --- Advanced Application Settings ---
+    APP_TITLE = os.getenv("APP_TITLE", "🛡️ TIFA - Elite Threat Intelligence Aggregator")
+    APP_DESCRIPTION = os.getenv("APP_DESCRIPTION", "AI-Powered Global Threat Intelligence Platform")
+    APP_ICON = "🛡️"
     
-    # Rate limiting (more lenient)
-    RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # seconds
-    MAX_CONCURRENT_AI_REQUESTS = int(os.getenv("MAX_CONCURRENT_AI_REQUESTS", "6"))  # Increased concurrent requests
+    # --- Performance & Scaling ---
+    MAX_ITEMS_PER_FEED = int(os.getenv("MAX_ITEMS_PER_FEED", 50))
+    MAX_RECENT_THREATS = int(os.getenv("MAX_RECENT_THREATS", 100))
+    MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", 100))
+    MAX_EXPORT_ITEMS = int(os.getenv("MAX_EXPORT_ITEMS", 1000))
+    AUTO_REFRESH_INTERVAL = int(os.getenv("AUTO_REFRESH_INTERVAL", 300))
+    
+    # --- AI Processing Configuration ---
+    AI_REQUEST_TIMEOUT = int(os.getenv("AI_REQUEST_TIMEOUT", 45))
+    AI_MAX_RETRIES = int(os.getenv("AI_MAX_RETRIES", 5))
+    AI_RETRY_DELAY = int(os.getenv("AI_RETRY_DELAY", 1))
+    MAX_CONCURRENT_AI_REQUESTS = int(os.getenv("MAX_CONCURRENT_AI_REQUESTS", 10))
+    
+    # --- Rate Limiting ---
+    RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", 60))
+    
+    # --- Server Configuration ---
+    SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
+    SERVER_PORT = int(os.getenv("SERVER_PORT", 7860))
+    
+    # --- Enhanced IOC Patterns for SOC Teams ---
+    IOC_PATTERNS = {
+        # Network Indicators
+        "ipv4": r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b',
+        "ipv6": r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b',
+        "domain": r'\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:[a-zA-Z]{2,})\b',
+        "subdomain": r'\b[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z]{2,}\b',
+        "url": r'https?://[^\s/$.?#].[^\s]*',
+        "ftp_url": r'ftp://[^\s/$.?#].[^\s]*',
+        
+        # File Hashes
+        "md5": r'\b[A-Fa-f0-9]{32}\b',
+        "sha1": r'\b[A-Fa-f0-9]{40}\b',
+        "sha256": r'\b[A-Fa-f0-9]{64}\b',
+        "sha512": r'\b[A-Fa-f0-9]{128}\b',
+        "ssdeep": r'\b\d+:[A-Za-z0-9/+]{3,}:[A-Za-z0-9/+]{3,}\b',
+        
+        # Vulnerabilities & CVEs
+        "cve": r'CVE-\d{4}-\d{4,7}',
+        "cwe": r'CWE-\d+',
+        "cpe": r'cpe:2\.3:[aho\*\-]:[^\s:]*(?::[^\s:]*){8}',
+        
+        # Email & Communication
+        "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+        "phone": r'\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b',
+        
+        # Cryptocurrency
+        "bitcoin": r'\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b',
+        "ethereum": r'\b0x[a-fA-F0-9]{40}\b',
+        "monero": r'\b4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}\b',
+        
+        # Malware & Signatures
+        "yara_rule": r'rule\s+\w+\s*\{[^}]*\}',
+        "mutex": r'Global\\[A-Za-z0-9_-]+',
+        "service_name": r'(?:HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\)([A-Za-z0-9_-]+)',
+        
+        # File System
+        "windows_path": r'[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*',
+        "unix_path": r'(?:/[^/\s]+)+/?',
+        "filename": r'\b[A-Za-z0-9_.-]+\.(?:exe|dll|bat|cmd|ps1|vbs|jar|zip|rar|doc|docx|pdf|xls|xlsx|ppt|pptx)\b',
+        "pdb_path": r'[A-Za-z]:\\[^:]+\.pdb',
+        
+        # Registry
+        "registry_key": r'HKEY_[A-Z_]+\\[^\\]+(?:\\[^\\]+)*',
+        "registry_value": r'(?:HKEY_[A-Z_]+\\[^\\]+(?:\\[^\\]+)*\\)([^\\]+)',
+        
+        # Network & Infrastructure
+        "user_agent": r'User-Agent:\s*([^\r\n]+)',
+        "http_header": r'[A-Za-z-]+:\s*[^\r\n]+',
+        "mac_address": r'\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b',
+        "port": r'\b(?:[1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])\b',
+        
+        # Attack Patterns
+        "attack_pattern": r'T\d{4}(?:\.\d{3})?',  # MITRE ATT&CK
+        "malware_family": r'\b(?:emotet|trickbot|ryuk|cobalt.*strike|metasploit|mimikatz|powershell.*empire)\b',
+        
+        # Cloud & Modern Infrastructure
+        "aws_access_key": r'AKIA[0-9A-Z]{16}',
+        "gcp_key": r'AIza[0-9A-Za-z\\-_]{35}',
+        "docker_image": r'[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-z0-9]+(?:[._-][a-z0-9]+)*',
+        
+        # Mobile & IoT
+        "android_package": r'[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+',
+        "ios_bundle": r'[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+',
+        
+        # Certificates & Encryption
+        "ssl_cert_serial": r'\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){7,19}\b',
+        "base64_encoded": r'(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?'
+    }
