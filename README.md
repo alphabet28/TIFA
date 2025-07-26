@@ -13,7 +13,7 @@
 
 Experience the full platform with real-time threat intelligence feeds, AI-powered analysis, and interactive analytics.
 
-![Dashboard Preview](<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/855e9546-089b-4202-a871-9a5000107252" />
+![Dashboard Preview](https://github.com/Deepam02/TIFA/blob/master/image.png
 )
 
 ## 🌟 Features
