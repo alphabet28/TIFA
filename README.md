@@ -253,16 +253,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Google Gemini AI** for powerful threat analysis capabilities
 - **Streamlit** for the amazing web interface framework
 - **CISA, SANS, Krebs Security** for reliable threat intelligence feeds
-- **Young Graduates Hiring Program** for the hackathon opportunity
 
-## 📞 Support
 
-- **Live Demo**: Try the platform at [tifa-societe.streamlit.app](https://tifa-societe.streamlit.app/)
-- **Issues**: Report bugs via GitHub Issues
-- **Discussions**: Use GitHub Discussions for questions
 
----
 
-**🎯 Built for the Young Graduates Hiring Program Hackathon Challenge**
 
 *A comprehensive cybersecurity threat intelligence platform designed to help security teams proactively monitor and respond to emerging threats.*
