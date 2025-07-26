@@ -159,7 +159,7 @@ class EliteThreatIntelAggregator:
                 "feeds_processed": 0,
                 "threats_analyzed": 0,
                 "iocs_extracted": 0,
-                "last_update": time.time()
+                "last_update": datetime.now().isoformat()
             }
             
             # Add caching for better performance
@@ -332,6 +332,14 @@ class EliteThreatIntelAggregator:
             results.update({
                 "success": True,
                 "processing_time": round(time.time() - start_time, 2)
+            })
+            
+            # Update metrics with ISO format timestamp
+            self.metrics.update({
+                "feeds_processed": results["feeds_processed"],
+                "threats_analyzed": results["new_threats"],
+                "iocs_extracted": results["total_iocs"],
+                "last_update": datetime.now().isoformat()
             })
             
             logger.info(f"✅ STREAMING aggregation completed in {results['processing_time']}s")
@@ -1319,8 +1327,18 @@ def main():
         st.markdown(f"🤖 **AI Models:** {len(Config.GEMINI_MODELS)} available")
         
         if aggregator.metrics.get("last_update"):
-            last_update = datetime.fromisoformat(aggregator.metrics["last_update"])
-            st.markdown(f"🕒 **Last Update:** {last_update.strftime('%H:%M:%S')}")
+            try:
+                # Handle both timestamp and ISO format
+                last_update_value = aggregator.metrics["last_update"]
+                if isinstance(last_update_value, (int, float)):
+                    # Unix timestamp
+                    last_update = datetime.fromtimestamp(last_update_value)
+                else:
+                    # ISO format string
+                    last_update = datetime.fromisoformat(last_update_value)
+                st.markdown(f"🕒 **Last Update:** {last_update.strftime('%H:%M:%S')}")
+            except (ValueError, OSError, TypeError) as e:
+                st.markdown("🕒 **Last Update:** Unknown")
         
         st.markdown("---")
         
