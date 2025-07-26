@@ -1,11 +1,17 @@
 # 🛡️ Threat Intelligence Feed Aggregator
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Gradio](https://img.shields.io/badge/gradio-4.0+-orange.svg)](https://gradio.app/)
+[![Streamlit](https://img.shields.io/badge/streamlit-1.30+-red.svg)](https://streamlit.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AI Powered](https://img.shields.io/badge/AI-Gemini%202.5-green.svg)](https://ai.google.dev/)
+[![Live Demo](https://img.shields.io/badge/Demo-Live%20Platform-brightgreen.svg)](https://tifa-societe.streamlit.app/#live-threat-intelligence-feed)
 
 > An AI-powered threat intelligence aggregation platform that consolidates and analyzes cyber threat data from multiple online sources using Google Gemini AI.
+
+## 🌐 Live Demo
+**👉 [Try TIFA Live Platform](https://tifa-societe.streamlit.app/#live-threat-intelligence-feed)**
+
+Experience the full platform with real-time threat intelligence feeds, AI-powered analysis, and interactive analytics.
 
 ![Dashboard Preview](https://via.placeholder.com/800x400/1e293b/ffffff?text=Threat+Intelligence+Dashboard)
 
@@ -18,115 +24,80 @@
 - **Beautiful Summaries**: Structured threat analysis with actionable insights
 
 ### 🔍 **Multi-Source Intelligence**
-- **5 Premium Sources**: CISA, SANS, Krebs on Security, Malwarebytes, ThreatPost
-- **RSS/Atom Parsing**: Real-time feed aggregation
-- **Auto-refresh**: Configurable update intervals
-- **Source Verification**: Validated threat intelligence feeds
+- **15+ Premium Sources**: CISA, SANS, Krebs on Security, Malwarebytes, ThreatPost, and more
+- **RSS/Atom Parsing**: Real-time feed aggregation with error handling
+- **Background Processing**: Non-blocking threat collection
+- **Source Verification**: Validated threat intelligence feeds with health monitoring
 
 ### 📊 **IOC Extraction**
-- **9 IOC Types**: IPs, domains, URLs, hashes (MD5/SHA1/SHA256), CVEs, emails
-- **Regex Patterns**: Advanced pattern matching for indicators
-- **Auto-filtering**: Excludes common false positives
-- **Contextual Analysis**: IOCs linked to threat context
+- **13+ IOC Types**: IPs, domains, URLs, hashes (MD5/SHA1/SHA256), CVEs, emails, registry keys, and more
+- **Advanced Patterns**: Context-aware pattern matching for indicators
+- **False Positive Filtering**: Intelligent filtering of common false positives
+- **Contextual Analysis**: IOCs linked to threat context and campaigns
 
 ### 🎯 **Professional Dashboard**
-- **Clean UI**: Modern Gradio interface with professional styling
-- **Severity Filtering**: Filter threats by Critical/High/Medium/Low
-- **Advanced Search**: Full-text search across all threats
-- **Real-time Stats**: Live threat statistics and AI usage metrics
+- **Modern Streamlit UI**: Professional cybersecurity interface with dark theme
+- **Real-time Updates**: Live threat feed with auto-refresh capabilities
+- **Interactive Analytics**: Advanced charts and visualizations with Plotly
+- **Comprehensive Search**: Full-text search, IOC hunting, and bulk analysis
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
-- Python 3.9 or higher
-- Google Gemini API keys ([Get them here](https://makersuite.google.com/app/apikey))
+### 🌐 **Try the Live Demo**
+Experience TIFA instantly without any setup:
+**👉 [Launch TIFA Platform](https://tifa-societe.streamlit.app/#live-threat-intelligence-feed)**
 
-### Installation
+### 📋 **What You Can Do**
+- **View Live Threats**: See real-time threat intelligence from 15+ premium sources
+- **Search IOCs**: Hunt for specific indicators of compromise across all collected threats
+- **Analyze Trends**: Explore interactive analytics and threat patterns
+- **Export Data**: Download threat intelligence for your security tools
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourusername/threat-intelligence-aggregator.git
-cd threat-intelligence-aggregator
-```
-
-2. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-3. **Configure API Keys**
-
-**Option A: Using .env file (Recommended)**
-```bash
-cp .env.example .env
-# Edit .env and add your Gemini API keys
-```
-
-**Option B: Direct configuration**
-Edit `config.py` and add your Gemini API keys:
-```python
-GEMINI_API_KEYS = [
-    "your-first-api-key-here",
-    "your-second-api-key-here"
-]
-```
-
-4. **Run the application**
-
-**For local development:**
-```bash
-python main.py
-```
-
-**For production/deployment:**
-```bash
-python app.py
-```
-
-5. **Open your browser**
-Navigate to `http://localhost:7860`
+### 🔧 **For Developers**
+If you want to run your own instance or contribute to the project:
+- **Clone Repository**: `git clone https://github.com/Deepam02/TIFA.git`
+- **Install Dependencies**: `pip install -r requirements.txt`
+- **Configure API Keys**: Add your Gemini API keys to `.streamlit/secrets.toml`
+- **Run Application**: `streamlit run app.py`
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   RSS/Atom     │───▶│   Feed Parser    │───▶│   Database      │
-│   Sources       │    │   (feedparser)   │    │   (SQLite)      │
+│   RSS/Atom     │───▶│   Feed Collector │───▶│   Database      │
+│   Sources       │    │   (core.py)      │    │   (SQLite)      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
                                 ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   IOC Extract   │◀───│   Aggregator     │───▶│   AI Analyzer   │
-│   (Regex)       │    │   (Main Logic)   │    │   (Gemini)      │
+│   IOC Extract   │◀───│   Background     │───▶│   AI Analyzer   │
+│   (13+ Types)   │    │   Processor      │    │   (Gemini 2.5)  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
                                 ▼
                        ┌──────────────────┐
-                       │   Dashboard      │
-                       │   (Gradio UI)    │
+                       │   Streamlit UI   │
+                       │   (app.py)       │
                        └──────────────────┘
 ```
 
 ## 📁 Project Structure
 
 ```
-threat-intelligence-aggregator/
-├── 📄 app.py                 # Production entry point
-├── 📄 main.py                # Development entry point
+TIFA/
+├── 📄 app.py                 # Main Streamlit application
+├── 📄 core.py                # Core business logic & AI integration
+├── 📄 database.py            # Database operations & caching
+├── 📄 models.py              # Data models & schemas
 ├── 📄 config.py              # Configuration settings
-├── 📄 models.py              # Data models
-├── 📄 database.py            # Database operations
-├── 📄 feed_collector.py      # RSS/Atom feed processing
-├── 📄 ioc_extractor.py       # IOC pattern matching
-├── 📄 ai_analyzer.py         # AI analysis coordinator
-├── 📄 gemini_analyzer.py     # Gemini AI implementation
-├── 📄 aggregator.py          # Main business logic
-├── 📄 dashboard.py           # Gradio UI interface
+├── 📄 init_database.py       # Database initialization
+├── 📄 streamlit_app.py       # Streamlit entry point
 ├── 📄 requirements.txt       # Python dependencies
-├── 📄 .gitignore            # Git ignore rules
-├── 📄 README.md             # This file
-├── 📄 DEPLOYMENT.md         # Deployment guide
-└── 📄 RUN_GUIDE.md          # Quick run guide
+├── 📄 README.md              # This file
+├── 📄 DEPLOYMENT.md          # Deployment guide
+├── 📄 RUN_GUIDE.md           # Quick run guide
+└── 📁 .streamlit/            # Streamlit configuration
+    └── secrets.toml          # API keys & secrets
 ```
 
 ## 🤖 AI Integration
