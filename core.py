@@ -240,6 +240,10 @@ class AIAnalyzer:
         self.models = {}
         self.current_key_index = 0
         
+        # Add missing attributes for API key rotation
+        self.last_reset = time.time()
+        self.request_counts = {key: 0 for key in self.api_keys} if self.api_keys else {}
+        
         # Threat categories for SOC teams
         self.threat_categories = {
             "malware": ["trojan", "ransomware", "virus", "worm", "backdoor", "rootkit", "spyware", "adware"],

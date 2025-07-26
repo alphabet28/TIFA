@@ -1,6 +1,6 @@
 """
 🛡️ TIFA - Elite Threat Intelligence Feed Aggregator
-Streamlit Cloud Entry Point
+Streamlit Cloud Entry Point with Performance Optimization
 """
 
 # Import required packages
@@ -32,20 +32,42 @@ if hasattr(st, 'secrets'):
     if 'GEMINI_API_KEY_2' in st.secrets:
         os.environ['GEMINI_API_KEY_2'] = st.secrets["GEMINI_API_KEY_2"]
 
-# Import and run the main application
+# Import and run the application
 try:
-    # Import main function from app.py
-    from app import main
-    
-    # Run the application
-    if __name__ == "__main__":
+    # Try optimized version first, fallback to main app
+    try:
+        from app_optimized import main as optimized_main
+        st.info("🚀 Running optimized fast-loading version")
+        optimized_main()
+    except ImportError:
+        # Fallback to main app
+        from app import main
+        st.info("🔄 Running standard version")
         main()
         
 except Exception as e:
     st.error(f"🚨 Application Error: {str(e)}")
-    st.info("Please check the configuration and try refreshing the page.")
     
-    # Show debug information in development
+    # Show fallback interface
+    st.markdown("## 🛡️ TIFA - Threat Intelligence (Fallback Mode)")
+    st.warning("The application encountered an error. Showing basic interface.")
+    
+    # Basic fallback interface
+    st.subheader("📊 Sample Threat Intelligence")
+    
+    sample_data = {
+        "Threat Type": ["APT", "Ransomware", "Phishing", "Malware"],
+        "Count": [15, 8, 22, 12],
+        "Severity": ["Critical", "High", "Medium", "High"]
+    }
+    
+    import pandas as pd
+    df = pd.DataFrame(sample_data)
+    st.dataframe(df, use_container_width=True)
+    
+    st.info("Please refresh the page or contact support if the issue persists.")
+    
+    # Show debug information if requested
     if st.checkbox("Show Debug Information"):
         st.code(f"Error details: {str(e)}")
         import traceback
