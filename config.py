@@ -12,10 +12,21 @@ class Config:
     load_dotenv()
 
     # --- Multi-API Key Load Balancing System ---
-    GEMINI_API_KEYS = [
-        os.getenv("GEMINI_API_KEY_1"),
-        os.getenv("GEMINI_API_KEY_2")
-    ]
+    # Try Streamlit secrets first, fallback to environment variables
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets'):
+            GEMINI_API_KEYS = [
+                st.secrets.get("GEMINI_API_KEY_1"),
+                st.secrets.get("GEMINI_API_KEY_2")
+            ]
+        else:
+            raise ImportError("Streamlit not available")
+    except (ImportError, AttributeError):
+        GEMINI_API_KEYS = [
+            os.getenv("GEMINI_API_KEY_1"),
+            os.getenv("GEMINI_API_KEY_2")
+        ]
     
     # Filter out None values
     GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
