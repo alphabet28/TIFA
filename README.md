@@ -94,8 +94,6 @@ TIFA/
 ├── 📄 streamlit_app.py       # Streamlit entry point
 ├── 📄 requirements.txt       # Python dependencies
 ├── 📄 README.md              # This file
-├── 📄 DEPLOYMENT.md          # Deployment guide
-├── 📄 RUN_GUIDE.md           # Quick run guide
 └── 📁 .streamlit/            # Streamlit configuration
     └── secrets.toml          # API keys & secrets
 ```
@@ -253,13 +251,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Google Gemini AI** for powerful threat analysis capabilities
-- **Gradio** for the amazing web interface framework
+- **Streamlit** for the amazing web interface framework
 - **CISA, SANS, Krebs Security** for reliable threat intelligence feeds
 - **Young Graduates Hiring Program** for the hackathon opportunity
 
 ## 📞 Support
 
-- **Documentation**: Check `DEPLOYMENT.md` and `RUN_GUIDE.md`
+- **Live Demo**: Try the platform at [tifa-societe.streamlit.app](https://tifa-societe.streamlit.app/)
 - **Issues**: Report bugs via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions
 
