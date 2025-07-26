@@ -1207,16 +1207,43 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
     # Convert to DataFrame for analysis
     threat_data = []
     for t in threats:
-        threat_data.append({
-            'title': t.title,
-            'source': t.source,
-            'severity': getattr(t, 'severity', 'Medium'),
-            'category': getattr(t, 'category', 'Unknown'),
-            'published_date': datetime.fromisoformat(t.published_date.replace('Z', '+00:00')),
-            'ioc_count': sum(len(iocs) for iocs in t.iocs.values())
-        })
+        try:
+            # Calculate IOC count safely
+            ioc_count = 0
+            if hasattr(t, 'iocs') and t.iocs:
+                for ioc_list in t.iocs.values():
+                    if isinstance(ioc_list, (list, tuple)):
+                        ioc_count += len(ioc_list)
+                    elif ioc_list:  # Single IOC
+                        ioc_count += 1
+            
+            # Parse published date safely
+            try:
+                if hasattr(t, 'published_date') and t.published_date:
+                    pub_date = datetime.fromisoformat(t.published_date.replace('Z', '+00:00'))
+                else:
+                    pub_date = datetime.now()
+            except:
+                pub_date = datetime.now()
+            
+            threat_data.append({
+                'title': getattr(t, 'title', 'Unknown'),
+                'source': getattr(t, 'source', 'Unknown'),
+                'severity': getattr(t, 'severity', 'Medium'),
+                'category': getattr(t, 'category', 'Unknown'),
+                'published_date': pub_date,
+                'ioc_count': ioc_count
+            })
+        except Exception as e:
+            logger.warning(f"Error processing threat for analytics: {e}")
+            continue
     
     df = pd.DataFrame(threat_data)
+    
+    # Ensure we have data to analyze
+    if df.empty:
+        st.info("📈 No valid data available for analytics. Please refresh feeds first.")
+        return
     
     # Analytics tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "🎯 Sources", "🔥 Severity", "💎 IOCs"])
@@ -1224,17 +1251,31 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
     with tab1:
         st.markdown("### 📈 Threat Intelligence Trends")
         
-        # Time series analysis
-        daily_threats = df.groupby(df['published_date'].dt.date).size()
-        fig = px.line(x=daily_threats.index, y=daily_threats.values,
-                     title="Daily Threat Intelligence Volume")
-        st.plotly_chart(fig, use_container_width=True, key="daily_threats_timeline")
+        try:
+            # Time series analysis
+            daily_threats = df.groupby(df['published_date'].dt.date).size()
+            if len(daily_threats) > 0:
+                fig = px.line(x=daily_threats.index, y=daily_threats.values,
+                             title="Daily Threat Intelligence Volume")
+                st.plotly_chart(fig, use_container_width=True, key="daily_threats_timeline")
+            else:
+                st.info("📊 No trend data available")
+        except Exception as e:
+            st.error(f"Error creating timeline: {str(e)}")
+            st.info("📊 Timeline chart temporarily unavailable")
         
-        # Category trends
-        category_trends = df.groupby(['published_date', 'category']).size().reset_index(name='count')
-        fig2 = px.area(category_trends, x='published_date', y='count', color='category',
-                      title="Threat Categories Over Time")
-        st.plotly_chart(fig2, use_container_width=True, key="category_trends_area")
+        try:
+            # Category trends
+            category_trends = df.groupby(['published_date', 'category']).size().reset_index(name='count')
+            if len(category_trends) > 0:
+                fig2 = px.area(category_trends, x='published_date', y='count', color='category',
+                              title="Threat Categories Over Time")
+                st.plotly_chart(fig2, use_container_width=True, key="category_trends_area")
+            else:
+                st.info("📊 No category trend data available")
+        except Exception as e:
+            st.error(f"Error creating category trends: {str(e)}")
+            st.info("📊 Category trends chart temporarily unavailable")
     
     with tab2:
         st.markdown("### 📡 Source Intelligence Analysis")
@@ -1242,20 +1283,37 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
         col1, col2 = st.columns(2)
         
         with col1:
-            # Source distribution
-            source_counts = df['source'].value_counts()
-            fig = px.pie(values=source_counts.values, names=source_counts.index,
-                        title="Threat Intelligence by Source")
-            st.plotly_chart(fig, use_container_width=True, key="source_distribution_pie")
+            try:
+                # Source distribution
+                source_counts = df['source'].value_counts()
+                if len(source_counts) > 0:
+                    fig = px.pie(values=source_counts.values, names=source_counts.index,
+                                title="Threat Intelligence by Source")
+                    st.plotly_chart(fig, use_container_width=True, key="source_distribution_pie")
+                else:
+                    st.info("📊 No source data available")
+            except Exception as e:
+                st.error(f"Error creating source chart: {str(e)}")
+                st.info("📊 Source distribution chart temporarily unavailable")
         
         with col2:
-            # Source quality metrics
-            source_quality = df.groupby('source').agg({
-                'ioc_count': 'mean',
-                'severity': lambda x: (x == 'Critical').sum() + (x == 'High').sum() * 0.7 + (x == 'Medium').sum() * 0.3
-            }).round(2)
-            source_quality.columns = ['Avg IOCs', 'Quality Score']
-            st.dataframe(source_quality, use_container_width=True)
+            try:
+                # Source quality metrics
+                if 'ioc_count' in df.columns and 'severity' in df.columns:
+                    source_quality = df.groupby('source').agg({
+                        'ioc_count': 'mean',
+                        'severity': lambda x: (x == 'Critical').sum() + (x == 'High').sum() * 0.7 + (x == 'Medium').sum() * 0.3
+                    }).round(2)
+                    source_quality.columns = ['Avg IOCs', 'Quality Score']
+                    if len(source_quality) > 0:
+                        st.dataframe(source_quality, use_container_width=True)
+                    else:
+                        st.info("📊 No source quality data available")
+                else:
+                    st.info("📊 Source quality metrics unavailable")
+            except Exception as e:
+                st.error(f"Error creating source quality metrics: {str(e)}")
+                st.info("📊 Source quality table temporarily unavailable")
     
     with tab3:
         st.markdown("### 🔥 Severity Analysis")
@@ -1263,38 +1321,77 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
         col1, col2 = st.columns(2)
         
         with col1:
-            # Severity distribution
-            severity_counts = df['severity'].value_counts()
-            colors = {'Critical': '#dc3545', 'High': '#fd7e14', 'Medium': '#0dcaf0', 'Low': '#198754'}
-            fig = px.bar(x=severity_counts.index, y=severity_counts.values,
-                        title="Threat Severity Distribution",
-                        color=severity_counts.index,
-                        color_discrete_map=colors)
-            st.plotly_chart(fig, use_container_width=True, key="severity_distribution_bar")
+            try:
+                # Severity distribution
+                severity_counts = df['severity'].value_counts()
+                if len(severity_counts) > 0:
+                    colors = {'Critical': '#dc3545', 'High': '#fd7e14', 'Medium': '#0dcaf0', 'Low': '#198754'}
+                    fig = px.bar(x=severity_counts.index, y=severity_counts.values,
+                                title="Threat Severity Distribution",
+                                color=severity_counts.index,
+                                color_discrete_map=colors)
+                    st.plotly_chart(fig, use_container_width=True, key="severity_distribution_bar")
+                else:
+                    st.info("📊 No severity data available")
+            except Exception as e:
+                st.error(f"Error creating severity chart: {str(e)}")
+                st.info("📊 Severity distribution chart temporarily unavailable")
         
         with col2:
-            # Severity trends over time
-            severity_trends = df.groupby([df['published_date'].dt.date, 'severity']).size().reset_index(name='count')
-            fig2 = px.line(severity_trends, x='published_date', y='count', color='severity',
-                          title="Severity Trends Over Time")
-            st.plotly_chart(fig2, use_container_width=True, key="severity_trends_line")
+            try:
+                # Severity trends over time
+                severity_trends = df.groupby([df['published_date'].dt.date, 'severity']).size().reset_index(name='count')
+                if len(severity_trends) > 0:
+                    fig2 = px.line(severity_trends, x='published_date', y='count', color='severity',
+                                  title="Severity Trends Over Time")
+                    st.plotly_chart(fig2, use_container_width=True, key="severity_trends_line")
+                else:
+                    st.info("📊 No severity trend data available")
+            except Exception as e:
+                st.error(f"Error creating severity trends: {str(e)}")
+                st.info("📊 Severity trends chart temporarily unavailable")
     
     with tab4:
         st.markdown("### 💎 IOC Intelligence Analysis")
         
+        # Check if we have valid IOC count data
+        valid_ioc_data = df['ioc_count'].dropna()
+        
+        if len(valid_ioc_data) == 0:
+            st.warning("📊 No IOC data available for analysis")
+            return
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            # IOC distribution
-            fig = px.histogram(df, x='ioc_count', bins=20,
-                             title="IOC Count Distribution per Threat")
-            st.plotly_chart(fig, use_container_width=True, key="ioc_count_histogram")
+            # IOC distribution with error handling
+            try:
+                # Filter out invalid values
+                ioc_data = df[df['ioc_count'].notna() & (df['ioc_count'] >= 0)]
+                
+                if len(ioc_data) > 0:
+                    fig = px.histogram(ioc_data, x='ioc_count', bins=min(20, len(ioc_data)),
+                                     title="IOC Count Distribution per Threat")
+                    st.plotly_chart(fig, use_container_width=True, key="ioc_count_histogram")
+                else:
+                    st.info("📊 No valid IOC count data to display")
+            except Exception as e:
+                st.error(f"Error creating IOC histogram: {str(e)}")
+                st.info("📊 IOC distribution chart temporarily unavailable")
         
         with col2:
-            # Top IOC producers
-            ioc_producers = df.nlargest(10, 'ioc_count')[['source', 'title', 'ioc_count']]
-            st.markdown("**🏆 Top IOC Producers**")
-            st.dataframe(ioc_producers, use_container_width=True)
+            # Top IOC producers with error handling
+            try:
+                valid_df = df[df['ioc_count'].notna() & (df['ioc_count'] > 0)]
+                if len(valid_df) > 0:
+                    ioc_producers = valid_df.nlargest(min(10, len(valid_df)), 'ioc_count')[['source', 'title', 'ioc_count']]
+                    st.markdown("**🏆 Top IOC Producers**")
+                    st.dataframe(ioc_producers, use_container_width=True)
+                else:
+                    st.info("📊 No IOC producers to display")
+            except Exception as e:
+                st.error(f"Error displaying IOC producers: {str(e)}")
+                st.info("📊 IOC producers list temporarily unavailable")
 
 # --- Main Application ---
 def main():
