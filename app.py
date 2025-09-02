@@ -2,6 +2,7 @@
 🛡️ TIFA - Threat Intelligence Feed Aggregator
 World-Class Enterprise Dashboard for International Hackathon Competition
 Advanced AI-Powered Real-Time Threat Intelligence Platform
+Version: 2.1.0 - Fixed AttributeError for Streamlit Cloud Deployment
 """
 import streamlit as st
 import pandas as pd
@@ -1596,47 +1597,53 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
 def main():
     """Main application entry point with elite features."""
     
-    # Initialize session state with comprehensive error handling
-    if 'aggregator' not in st.session_state:
-        try:
-            st.session_state.aggregator = EliteThreatIntelAggregator()
-        except Exception as e:
-            st.error(f"Failed to initialize aggregator: {e}")
-            # Create a minimal fallback aggregator
-            class FallbackAggregator:
-                def __init__(self):
-                    self.metrics = {
-                        "feeds_processed": 0,
-                        "threats_analyzed": 0,
-                        "iocs_extracted": 0,
-                        "last_update": datetime.now().isoformat(),
-                        "ai_requests": 0,
-                        "alerts_generated": 0
-                    }
-                    self.fallback_mode = True
-                    self.db = None
+    # Critical safety check to prevent AttributeError
+    try:
+        # Initialize session state with comprehensive error handling
+        if 'aggregator' not in st.session_state:
+            try:
+                st.session_state.aggregator = EliteThreatIntelAggregator()
+            except Exception as e:
+                st.error(f"Failed to initialize aggregator: {e}")
+                # Create a minimal fallback aggregator
+                class FallbackAggregator:
+                    def __init__(self):
+                        self.metrics = {
+                            "feeds_processed": 0,
+                            "threats_analyzed": 0,
+                            "iocs_extracted": 0,
+                            "last_update": datetime.now().isoformat(),
+                            "ai_requests": 0,
+                            "alerts_generated": 0
+                        }
+                        self.fallback_mode = True
+                        self.db = None
+                    
+                    def _get_fallback_threats(self):
+                        from src.core.models import ThreatIntelItem
+                        return []
+                    
+                    def get_cached_threats(self, limit=50):
+                        return []
                 
-                def _get_fallback_threats(self):
-                    from src.core.models import ThreatIntelItem
-                    return []
-                
-                def get_cached_threats(self, limit=50):
-                    return []
-            
-            st.session_state.aggregator = FallbackAggregator()
-    
-    aggregator = st.session_state.aggregator
-    
-    # Additional safety check for aggregator
-    if not hasattr(aggregator, 'metrics'):
-        aggregator.metrics = {
-            "feeds_processed": 0,
-            "threats_analyzed": 0,
-            "iocs_extracted": 0,
-            "last_update": datetime.now().isoformat(),
-            "ai_requests": 0,
-            "alerts_generated": 0
-        }
+                st.session_state.aggregator = FallbackAggregator()
+        
+        aggregator = st.session_state.aggregator
+        
+        # Additional safety check for aggregator
+        if not hasattr(aggregator, 'metrics'):
+            aggregator.metrics = {
+                "feeds_processed": 0,
+                "threats_analyzed": 0,
+                "iocs_extracted": 0,
+                "last_update": datetime.now().isoformat(),
+                "ai_requests": 0,
+                "alerts_generated": 0
+            }
+        
+    except Exception as fatal_error:
+        st.error(f"🚨 Critical initialization error: {fatal_error}")
+        st.stop()
     
     # Elite sidebar navigation
     with st.sidebar:
