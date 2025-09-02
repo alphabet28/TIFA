@@ -16,12 +16,17 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+    genai = None
 from urllib.parse import urljoin, urlparse
 
-from config import Config
-from models import ThreatIntelItem
-from database import ThreatIntelDatabase
+from ..core.config import Config
+from ..core.models import ThreatIntelItem
+from ..core.database import ThreatIntelDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -256,17 +261,22 @@ class AIAnalyzer:
             "fraud": ["financial fraud", "payment fraud", "identity theft", "scam"]
         }
         
-        if self.api_keys:
+        if self.api_keys and GENAI_AVAILABLE:
             self._initialize_models()
         else:
-            logger.warning("⚠️ No Gemini API keys found. Using rule-based analysis.")
+            logger.warning("⚠️ No Gemini API keys found or google.generativeai not available. Using rule-based analysis.")
 
     def _initialize_models(self):
         """Initialize AI models for threat analysis."""
+        if not GENAI_AVAILABLE:
+            logger.warning("Google Generative AI not available")
+            return
+            
         try:
-            genai.configure(api_key=self.api_keys[0])
-            self.models["summary"] = genai.GenerativeModel(Config.GEMINI_MODELS["summary"])
-            logger.info(f"✅ Initialized AI analyzer with {Config.GEMINI_MODELS['summary']}")
+            if genai:
+                genai.configure(api_key=self.api_keys[0])  # type: ignore
+                self.models["summary"] = genai.GenerativeModel(Config.GEMINI_MODELS["summary"])  # type: ignore
+                logger.info(f"✅ Initialized AI analyzer with {Config.GEMINI_MODELS['summary']}")
         except Exception as e:
             logger.error(f"Failed to initialize AI models: {e}")
 
@@ -368,6 +378,9 @@ class AIAnalyzer:
 
     def _ai_enhanced_analysis(self, text: str) -> Dict[str, Any]:
         """AI-enhanced analysis using Gemini models."""
+        if not GENAI_AVAILABLE:
+            return {}
+            
         try:
             prompt = f"""
             Analyze this threat intelligence for a SOC team. Provide:
@@ -387,8 +400,14 @@ class AIAnalyzer:
             
             # Get AI key and make request
             api_key = self._get_api_key()
-            genai.configure(api_key=api_key)
+            if not api_key or not genai:
+                return {}
+                
+            genai.configure(api_key=api_key)  # type: ignore
             
+            if "summary" not in self.models:
+                return {}
+                
             response = self.models["summary"].generate_content(prompt)
             
             # Parse response
@@ -407,7 +426,7 @@ class AIAnalyzer:
             logger.error(f"AI analysis failed: {e}")
             return {}
 
-    def _get_api_key(self) -> str:
+    def _get_api_key(self) -> Optional[str]:
         """Get API key with simple rotation."""
         if not self.api_keys:
             return None
@@ -465,7 +484,7 @@ class AIAnalyzer:
         
         return recommendations
 
-    def _get_next_api_key(self) -> str:
+    def _get_next_api_key(self) -> Optional[str]:
         """Intelligent API key rotation for load balancing."""
         if not self.api_keys:
             return None
@@ -480,143 +499,6 @@ class AIAnalyzer:
         self.request_counts[min_usage_key] += 1
         
         return min_usage_key
-
-    def analyze(self, content: str, analysis_type: str = "summary") -> Dict[str, Any]:
-        """
-        Advanced AI analysis with retry logic and fallback handling.
-        
-        Args:
-            content: Content to analyze
-            analysis_type: Type of analysis (summary, analysis, classification, correlation)
-            
-        Returns:
-            Analysis results with summary, severity, category, and confidence
-        """
-        if not self.models:
-            return self._fallback_analysis(content)
-
-        api_key = self._get_next_api_key()
-        if not api_key:
-            return self._fallback_analysis(content)
-
-        # Configure the selected API key
-        genai.configure(api_key=api_key)
-        
-        prompt = self._build_advanced_prompt(content, analysis_type)
-        
-        for attempt in range(Config.AI_MAX_RETRIES):
-            try:
-                model = self.models.get(analysis_type, self.models.get("summary"))
-                response = model.generate_content(prompt)
-                
-                # Parse and validate response
-                result = self._parse_ai_response(response.text)
-                if result:
-                    result["api_key_used"] = api_key[-6:]  # Last 6 chars for debugging
-                    result["analysis_type"] = analysis_type
-                    return result
-                    
-            except Exception as e:
-                logger.warning(f"AI analysis attempt {attempt + 1} failed: {e}")
-                if attempt < Config.AI_MAX_RETRIES - 1:
-                    time.sleep(Config.AI_RETRY_DELAY * (attempt + 1))
-                    # Try next API key
-                    api_key = self._get_next_api_key()
-                    if api_key:
-                        genai.configure(api_key=api_key)
-
-        return self._fallback_analysis(content)
-
-    def _build_advanced_prompt(self, content: str, analysis_type: str) -> str:
-        """Build sophisticated prompts for different analysis types."""
-        base_context = """You are an elite cybersecurity threat intelligence analyst with expertise in 
-        advanced persistent threats, malware analysis, and threat hunting. Analyze the following threat intelligence."""
-        
-        prompts = {
-            "summary": f"""{base_context}
-            
-            Provide:
-            1. Concise executive summary (max 150 words)
-            2. Threat severity (Critical/High/Medium/Low)
-            3. Primary threat category (Malware/Phishing/Vulnerability/APT/Other)
-            4. Confidence level (High/Medium/Low)
-            5. Key IOCs mentioned
-            6. Affected systems/platforms
-            
-            Content: {content}
-            
-            Respond in valid JSON format with keys: summary, severity, category, confidence, key_iocs, affected_systems""",
-            
-            "analysis": f"""{base_context}
-            
-            Perform deep technical analysis:
-            1. Threat actor attribution possibilities
-            2. Attack vector analysis
-            3. Potential impact assessment
-            4. Recommended mitigation strategies
-            5. Related threats/campaigns
-            
-            Content: {content}
-            
-            Respond in valid JSON format.""",
-            
-            "classification": f"""{base_context}
-            
-            Classify this threat:
-            1. MITRE ATT&CK tactics and techniques
-            2. Kill chain phase
-            3. Industry targeting
-            4. Geographic targeting
-            5. Sophistication level
-            
-            Content: {content}
-            
-            Respond in valid JSON format."""
-        }
-        
-        return prompts.get(analysis_type, prompts["summary"])
-
-    def _parse_ai_response(self, response_text: str) -> Optional[Dict[str, Any]]:
-        """Parse and validate AI response."""
-        try:
-            # Clean the response
-            cleaned = response_text.strip()
-            if cleaned.startswith("```json"):
-                cleaned = cleaned[7:]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            
-            result = json.loads(cleaned)
-            
-            # Validate required fields
-            if "summary" in result and "severity" in result:
-                return result
-                
-        except Exception as e:
-            logger.error(f"Failed to parse AI response: {e}")
-            
-        return None
-
-    def _fallback_analysis(self, content: str) -> Dict[str, Any]:
-        """Fallback analysis when AI is unavailable."""
-        # Simple keyword-based severity assessment
-        severity = "Medium"
-        if any(word in content.lower() for word in ["critical", "zero-day", "rce", "ransomware"]):
-            severity = "Critical"
-        elif any(word in content.lower() for word in ["high", "exploit", "malware", "breach"]):
-            severity = "High"
-        elif any(word in content.lower() for word in ["low", "advisory", "patch"]):
-            severity = "Low"
-        
-        return {
-            "summary": content[:500] + "..." if len(content) > 500 else content,
-            "severity": severity,
-            "category": "Unknown",
-            "confidence": "Low",
-            "key_iocs": [],
-            "affected_systems": [],
-            "analysis_type": "fallback"
-        }
 
 # --- High-Performance Feed Collector ---
 class FeedCollector:

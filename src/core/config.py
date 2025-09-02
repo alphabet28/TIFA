@@ -39,6 +39,9 @@ class Config:
         "correlation": "gemini-2.0-flash"        # Complex correlations
     }
 
+    # --- AI Configuration ---
+    AI_PROVIDER = "gemini"
+    
     @classmethod
     def get_random_api_key(cls) -> str:
         """Returns a random API key for load balancing."""
@@ -73,7 +76,7 @@ class Config:
     ]
 
     # --- Database Configuration ---
-    DB_PATH = os.getenv("DATABASE_PATH", "threat_intel.db")
+    DB_PATH = os.getenv("DATABASE_PATH", "data/threat_intel.db")
     
     # --- Advanced Application Settings ---
     APP_TITLE = os.getenv("APP_TITLE", "🛡️ TIFA - Elite Threat Intelligence Aggregator")
@@ -86,6 +89,13 @@ class Config:
     MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", 100))
     MAX_EXPORT_ITEMS = int(os.getenv("MAX_EXPORT_ITEMS", 1000))
     AUTO_REFRESH_INTERVAL = int(os.getenv("AUTO_REFRESH_INTERVAL", 300))
+    
+    # --- Domain Filtering ---
+    EXCLUDE_DOMAINS = {
+        "w3.org", "schema.org", "example.com", "localhost", "github.com",
+        "twitter.com", "facebook.com", "google.com", "microsoft.com",
+        "cve.mitre.org", "nvd.nist.gov"
+    }
     
     # --- AI Processing Configuration ---
     AI_REQUEST_TIMEOUT = int(os.getenv("AI_REQUEST_TIMEOUT", 45))

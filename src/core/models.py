@@ -17,9 +17,10 @@ class ThreatIntelItem:
         published_date (str): The publication date of the item in ISO format.
         iocs (Dict[str, Set[str]]): A dictionary of Indicators of Compromise, categorized by type (e.g., "ips", "domains").
         severity (str): The assessed severity of the threat (e.g., "Low", "Medium", "High").
+        category (str): The category of the threat (e.g., "APT", "Ransomware", "Phishing").
         created_at (str): The timestamp when the item was added to the database.
     """
-    def __init__(self, title: str, link: str, summary: str, source: str, published_date: str, iocs: Dict[str, Set[str]], severity: str = "Medium"):
+    def __init__(self, title: str, link: str, summary: str, source: str, published_date: str, iocs: Dict[str, Set[str]], severity: str = "Medium", category: str = "Unknown"):
         self.id = f"{source}:{link}"
         self.title = title
         self.link = link
@@ -28,7 +29,11 @@ class ThreatIntelItem:
         self.published_date = published_date
         self.iocs = iocs
         self.severity = severity
+        self.category = category
         self.created_at = datetime.now().isoformat()
+        # Additional attributes for enhanced functionality
+        self.priority = "medium"  # Default priority
+        self.feed_url = ""  # Feed URL source
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes the object to a dictionary."""
@@ -41,5 +46,8 @@ class ThreatIntelItem:
             "published_date": self.published_date,
             "iocs": {k: list(v) for k, v in self.iocs.items()},
             "severity": self.severity,
-            "created_at": self.created_at
+            "category": self.category,
+            "created_at": self.created_at,
+            "priority": self.priority,
+            "feed_url": self.feed_url
         }

@@ -1,5 +1,5 @@
 """
-🛡️ TIFA - Elite Threat Intelligence Feed Aggregator
+🛡️ TIFA - Threat Intelligence Feed Aggregator
 World-Class Enterprise Dashboard for International Hackathon Competition
 Advanced AI-Powered Real-Time Threat Intelligence Platform
 """
@@ -12,15 +12,17 @@ import logging
 import time
 import json
 import re
+import threading
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from config import Config
-from models import ThreatIntelItem
-from database import ThreatIntelDatabase
-from core import AIAnalyzer, IOCExtractor, FeedCollector, ThreatCorrelator, AlertSystem
+from src.core.config import Config
+from src.core.models import ThreatIntelItem
+from src.core.database import ThreatIntelDatabase
+from src.analyzers.ai_core import AIAnalyzer, IOCExtractor, FeedCollector, ThreatCorrelator, AlertSystem
 
 # --- Setup & Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -180,18 +182,21 @@ class EliteThreatIntelAggregator:
         """Get threats with caching for better performance."""
         current_time = time.time()
         
-        # Check if cache is valid
+        # Check if cache is valid and has enough data for the requested limit
         if (self._threat_cache is not None and 
-            current_time - self._cache_timestamp < self._cache_duration):
+            current_time - self._cache_timestamp < self._cache_duration and
+            len(self._threat_cache) >= limit):
             return self._threat_cache[:limit]
         
-        # Fetch fresh data
+        # Fetch fresh data - always fetch more than requested to improve caching
         try:
             if self.db:
-                threats = self.db.get_recent_threats(limit=limit)
+                # Fetch more threats than requested to improve cache efficiency
+                fetch_limit = max(limit, 100)  # Always fetch at least 100 for better caching
+                threats = self.db.get_recent_threats(limit=fetch_limit)
                 self._threat_cache = threats
                 self._cache_timestamp = current_time
-                return threats
+                return threats[:limit]  # Return only what was requested
             else:
                 return self._get_fallback_threats()[:limit]
         except Exception as e:
@@ -200,7 +205,7 @@ class EliteThreatIntelAggregator:
     
     def _get_fallback_threats(self):
         """Provide fallback threat data when database is unavailable."""
-        from models import ThreatIntelItem
+        from src.core.models import ThreatIntelItem
         from datetime import datetime
         
         fallback_data = [
@@ -238,16 +243,15 @@ class EliteThreatIntelAggregator:
         threats = []
         for data in fallback_data:
             threat = ThreatIntelItem(
-                id=data["id"],
                 title=data["title"],
                 source=data["source"],
                 link=data["link"],
                 published_date=data["published_date"],
                 summary=data["summary"],
-                iocs=data["iocs"]
+                iocs=data["iocs"],
+                severity=data["severity"],
+                category=data["category"]
             )
-            threat.category = data["category"]
-            threat.severity = data["severity"]
             threats.append(threat)
             
         return threats
@@ -299,11 +303,16 @@ class EliteThreatIntelAggregator:
                                     item.severity = "Medium"
                                 
                                 # Save to database immediately
-                                if not self.db.item_exists(item.id):
+                                if self.db and not self.db.item_exists(item.id):
                                     self.db.save_item(item)
                                     processed_count += 1
                                     
                                     # Count IOCs
+                                    for ioc_list in item.iocs.values():
+                                        results["total_iocs"] += len(ioc_list)
+                                elif not self.db:
+                                    # Skip database save in fallback mode but count for metrics
+                                    processed_count += 1
                                     for ioc_list in item.iocs.values():
                                         results["total_iocs"] += len(ioc_list)
                                         
@@ -558,11 +567,11 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
     render_elite_header()
     render_elite_metrics(aggregator)
     
-    # Get threats with fallback
+    # Get initial threats for background processing status (not for main display)
     try:
-        threats = aggregator.get_cached_threats(limit=20)
+        initial_threats = aggregator.get_cached_threats(limit=5)  # Just for background status
     except:
-        threats = aggregator._get_fallback_threats()
+        initial_threats = aggregator._get_fallback_threats()[:5]
         st.info("📡 Showing sample data while connecting to threat intelligence feeds")
     
     # Action buttons
@@ -616,19 +625,22 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
                 
         # Real-time activity indicator
         with st.expander("📊 **Live Processing Activity**", expanded=False):
-            recent_threats = aggregator.db.get_recent_threats(limit=5)
-            if recent_threats:
-                st.markdown("**Latest threats collected:**")
-                for threat in recent_threats[:3]:
-                    try:
-                        created_time = datetime.fromisoformat(threat.created_at.replace('Z', '')) if threat.created_at else datetime.now()
-                        time_ago = (datetime.now() - created_time).total_seconds()
-                        if time_ago < 3600:  # Less than 1 hour
-                            st.write(f"✅ {threat.source}: {threat.title[:60]}... ({time_ago:.0f}s ago)")
-                    except:
-                        st.write(f"✅ {threat.source}: {threat.title[:60]}...")
+            if aggregator.db:
+                recent_threats = aggregator.db.get_recent_threats(limit=5)
+                if recent_threats:
+                    st.markdown("**Latest threats collected:**")
+                    for threat in recent_threats[:3]:
+                        try:
+                            created_time = datetime.fromisoformat(threat.created_at.replace('Z', '')) if threat.created_at else datetime.now()
+                            time_ago = (datetime.now() - created_time).total_seconds()
+                            if time_ago < 3600:  # Less than 1 hour
+                                st.write(f"✅ {threat.source}: {threat.title[:60]}... ({time_ago:.0f}s ago)")
+                        except:
+                            st.write(f"✅ {threat.source}: {threat.title[:60]}...")
+                else:
+                    st.write("⏳ Waiting for new threats...")
             else:
-                st.write("⏳ Waiting for new threats...")
+                st.write("📡 Database not available - running in fallback mode")
     
     # Show results when background task completes
     if 'last_aggregation_results' in st.session_state:
@@ -659,9 +671,6 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
     # Main threat feed display
     st.markdown("## 🎯 Live Threat Intelligence Feed")
     
-    # === LIVE THREAT INTELLIGENCE DISPLAY ===
-    st.subheader("🎯 **LIVE THREAT INTELLIGENCE FEED**")
-    
     # Real-time refresh controls
     col_auto1, col_auto2, col_auto3 = st.columns([2, 1, 1])
     
@@ -688,7 +697,7 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
         time.sleep(10)
         st.rerun()
     
-    # Filter controls
+    # Filter controls - First row: Severity and Source
     col1, col2, col3 = st.columns(3)
     with col1:
         severity_filter = st.selectbox("🔥 Severity Filter", ["All", "Critical", "High", "Medium", "Low"])
@@ -697,22 +706,108 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
     with col3:
         limit = st.slider("📄 Items to Show", 5, 100, 20)
     
+    # Date filter - Second row for better layout
+    st.markdown("---")  # Visual separator
+    st.markdown("📅 **Date Filter**")
+    
+    # Create columns for date filter
+    date_col1, date_col2, date_col3 = st.columns([2, 2, 2])
+    
+    with date_col1:
+        date_preset = st.selectbox(
+            "Quick presets",
+            ["Show All", "Custom", "Today", "Last 3 days", "Last week", "Last month"],
+            help="Quick date filter presets for SOC analysis"
+        )
+    
+    # Handle "Show All" preset
+    if date_preset == "Show All":
+        date_filter = None
+        to_date_filter = None
+        
+        with date_col2:
+            st.date_input(
+                "From date",
+                value=datetime.now().date() - timedelta(days=30),
+                disabled=True,
+                help="Date filter disabled - showing all data"
+            )
+        
+        with date_col3:
+            st.date_input(
+                "To date",
+                value=datetime.now().date(),
+                disabled=True,
+                help="Date filter disabled - showing all data"
+            )
+    
+    elif date_preset == "Custom":
+        with date_col2:
+            date_filter = st.date_input(
+                "From date", 
+                value=datetime.now().date() - timedelta(days=7),
+                max_value=datetime.now().date(),
+                help="Show threats from this date onwards"
+            )
+        
+        with date_col3:
+            to_date_filter = st.date_input(
+                "To date",
+                value=datetime.now().date(),
+                min_value=date_filter if 'date_filter' in locals() else datetime.now().date() - timedelta(days=30),
+                max_value=datetime.now().date(),
+                help="Show threats up to this date"
+            )
+    
+    else:
+        # Calculate date based on preset
+        if date_preset == "Today":
+            date_filter = datetime.now().date()
+        elif date_preset == "Last 3 days":
+            date_filter = datetime.now().date() - timedelta(days=3)
+        elif date_preset == "Last week":
+            date_filter = datetime.now().date() - timedelta(days=7)
+        elif date_preset == "Last month":
+            date_filter = datetime.now().date() - timedelta(days=30)
+        
+        to_date_filter = datetime.now().date()
+        
+        with date_col2:
+            st.date_input(
+                "From date",
+                value=date_filter,
+                disabled=True,
+                help=f"Auto-calculated for {date_preset}"
+            )
+        
+        with date_col3:
+            st.date_input(
+                "To date",
+                value=to_date_filter,
+                disabled=True,
+                help="Auto-set to today for presets"
+            )
+    
     # Get and display threats with fallback
     try:
         if hasattr(aggregator, 'get_cached_threats'):
             threats = aggregator.get_cached_threats(limit=limit)
-        else:
+        elif aggregator.db:
             threats = aggregator.db.get_recent_threats(limit=limit)
+        else:
+            threats = []
             
         # If no threats in database, use fallback
         if not threats or len(threats) == 0:
-            threats = aggregator._get_fallback_threats()
+            threats = aggregator._get_fallback_threats()[:limit]  # Apply limit to fallback threats
             st.info("📡 Showing sample threat intelligence data. Real feeds will update automatically.")
+            st.caption(f"🔧 Debug: Using {len(threats)} fallback threats")
             
     except Exception as e:
         logger.warning(f"Database query failed: {e}")
-        threats = aggregator._get_fallback_threats()
+        threats = aggregator._get_fallback_threats()[:limit]  # Apply limit to fallback threats
         st.warning("⚠️ Database temporarily unavailable. Showing sample data.")
+        st.caption(f"🔧 Debug: Exception - Using {len(threats)} fallback threats")
     
     if not threats:
         if st.session_state.get('aggregation_running', False):
@@ -724,9 +819,55 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
     # Apply filters
     if severity_filter != "All":
         threats = [t for t in threats if getattr(t, 'severity', 'Medium') == severity_filter]
+        st.caption(f"🔧 Debug: After severity filter: {len(threats)} threats")
     
     if source_filter != "All":
         threats = [t for t in threats if t.source == source_filter]
+        st.caption(f"🔧 Debug: After source filter: {len(threats)} threats")
+    
+    # Apply date filter - show threats within the selected date range
+    if date_filter:
+        date_filtered_threats = []
+        for threat in threats:
+            try:
+                # Check both published_date and created_at fields
+                threat_date = None
+                
+                # Try published_date first
+                if hasattr(threat, 'published_date') and threat.published_date:
+                    if isinstance(threat.published_date, str):
+                        # Parse ISO format date string
+                        threat_date = datetime.fromisoformat(threat.published_date.replace('Z', '+00:00')).date()
+                    else:
+                        threat_date = threat.published_date.date() if hasattr(threat.published_date, 'date') else threat.published_date
+                
+                # Fallback to created_at if published_date not available
+                if not threat_date and hasattr(threat, 'created_at') and threat.created_at:
+                    if isinstance(threat.created_at, str):
+                        threat_date = datetime.fromisoformat(threat.created_at.replace('Z', '+00:00')).date()
+                    else:
+                        threat_date = threat.created_at.date() if hasattr(threat.created_at, 'date') else threat.created_at
+                
+                # Include threat if date is within the range (from_date <= threat_date <= to_date)
+                # Handle None values for "Show All" mode
+                if threat_date and date_filter is not None and to_date_filter is not None:
+                    if date_filter <= threat_date <= to_date_filter:
+                        date_filtered_threats.append(threat)
+                elif threat_date and (date_filter is None or to_date_filter is None):
+                    # Show all mode - include all threats with dates
+                    date_filtered_threats.append(threat)
+                elif not threat_date:
+                    # Include threats with no date info (to avoid losing data)
+                    date_filtered_threats.append(threat)
+                    
+            except Exception as e:
+                # Include threats where date parsing fails (to avoid losing data)
+                date_filtered_threats.append(threat)
+                
+        threats = date_filtered_threats
+    
+    # Apply the limit after filtering to ensure we show exactly the number of items selected
+    threats = threats[:limit]
     
     # Display threats with "NEW" badges for recent ones
     current_time = datetime.now()
@@ -757,16 +898,26 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
         col_db1, col_db2, col_db3 = st.columns(3)
         
         with col_db1:
-            db_stats = aggregator.db.get_statistics()
-            st.metric("📊 **Total Threats**", db_stats.get('total_threats', 0))
+            if aggregator.db:
+                db_stats = aggregator.db.get_statistics()
+                st.metric("📊 **Total Threats**", db_stats.get('total_threats', 0))
+            else:
+                st.metric("📊 **Total Threats**", 0)
         
         with col_db2:
-            threats = aggregator.db.get_recent_threats(limit=1000)
-            ioc_count = sum(len(list(t.iocs.values())[0]) if t.iocs else 0 for t in threats[:100])
-            st.metric("🎯 **Total IOCs**", ioc_count)
+            if aggregator.db:
+                threats = aggregator.db.get_recent_threats(limit=1000)
+                ioc_count = sum(len(list(t.iocs.values())[0]) if t.iocs else 0 for t in threats[:100])
+                st.metric("🎯 **Total IOCs**", ioc_count)
+            else:
+                st.metric("🎯 **Total IOCs**", 0)
         
         with col_db3:
-            sources = len(set(t.source for t in threats[:100]))
+            if aggregator.db:
+                threats = aggregator.db.get_recent_threats(limit=1000)
+                sources = len(set(t.source for t in threats[:100]))
+            else:
+                sources = 0
             st.metric("📡 **Sources**", sources)
         
         # Database actions
@@ -779,30 +930,33 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
         
         with col_action2:
             if st.button("📥 **Export All Data**", use_container_width=True):
-                # Export all threats as JSON
-                all_threats = aggregator.db.get_recent_threats(limit=10000)
-                export_data = []
-                for threat in all_threats:
-                    export_data.append({
-                        "id": threat.id,
-                        "title": threat.title,
-                        "source": threat.source,
-                        "category": getattr(threat, 'category', 'unknown'),
-                        "severity": getattr(threat, 'severity', 'Medium'),
-                        "published_date": threat.published_date,
-                        "link": threat.link,
-                        "summary": threat.summary,
-                        "iocs": {k: list(v) for k, v in threat.iocs.items()}
-                    })
-                
-                import json
-                export_json = json.dumps(export_data, indent=2)
-                st.download_button(
-                    label="📥 Download All Threats",
-                    data=export_json,
-                    file_name=f"threat_intel_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json"
-                )
+                if aggregator.db:
+                    # Export all threats as JSON
+                    all_threats = aggregator.db.get_recent_threats(limit=10000)
+                    export_data = []
+                    for threat in all_threats:
+                        export_data.append({
+                            "id": threat.id,
+                            "title": threat.title,
+                            "source": threat.source,
+                            "category": getattr(threat, 'category', 'unknown'),
+                            "severity": getattr(threat, 'severity', 'Medium'),
+                            "published_date": threat.published_date,
+                            "link": threat.link,
+                            "summary": threat.summary,
+                            "iocs": {k: list(v) for k, v in threat.iocs.items()}
+                        })
+                    
+                    import json
+                    export_json = json.dumps(export_data, indent=2)
+                    st.download_button(
+                        label="📥 Download All Threats",
+                        data=export_json,
+                        file_name=f"threat_intel_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json"
+                    )
+                else:
+                    st.warning("⚠️ Database not available for export")
         
         with col_action3:
             # Clear database with confirmation
@@ -818,20 +972,23 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
             
             with col_conf1:
                 if st.button("✅ **Yes, Clear All Data**", type="primary"):
-                    try:
-                        # Delete all data from database
-                        import sqlite3
-                        conn = sqlite3.connect(aggregator.db.db_path)
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM threat_intel")
-                        conn.commit()
-                        conn.close()
-                        
-                        st.session_state.confirm_clear = False
-                        st.success("✅ Database cleared successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Failed to clear database: {e}")
+                    if aggregator.db:
+                        try:
+                            # Delete all data from database
+                            import sqlite3
+                            conn = sqlite3.connect(aggregator.db.db_path)
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM threat_intel")
+                            conn.commit()
+                            conn.close()
+                            
+                            st.session_state.confirm_clear = False
+                            st.success("✅ Database cleared successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Failed to clear database: {e}")
+                    else:
+                        st.warning("⚠️ Database not available")
             
             with col_conf2:
                 if st.button("❌ **Cancel**"):
@@ -872,7 +1029,12 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
         
         # Search for matching threats
         matching_threats = []
-        all_threats = aggregator.db.get_recent_threats(limit=1000)
+        matched_categories_map = {}  # Store matched categories separately
+        
+        if aggregator.db:
+            all_threats = aggregator.db.get_recent_threats(limit=1000)
+        else:
+            all_threats = aggregator._get_fallback_threats()
         
         # Enhanced search logic
         for threat in all_threats:
@@ -897,7 +1059,8 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
                 matched_categories.append("content")
             
             if threat_match:
-                threat.matched_categories = list(set(matched_categories))
+                # Store matched categories separately instead of assigning to threat object
+                matched_categories_map[threat.id] = list(set(matched_categories))
                 matching_threats.append(threat)
         
         # === Results Summary ===
@@ -1053,7 +1216,7 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
                         <span><strong>🔥 Severity:</strong> {severity}</span>
                     </div>
                     <div style="background: #e8f4fd; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <strong>� Matched in:</strong> {', '.join(getattr(threat, 'matched_categories', []))}
+                        <strong>🔍 Matched in:</strong> {', '.join(matched_categories_map.get(threat.id, []))}
                     </div>
                     <p>{threat.summary[:200]}...</p>
                 </div>
@@ -1120,7 +1283,10 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
                 
                 # Analyze each IOC
                 bulk_results = {}
-                all_threats = aggregator.db.get_recent_threats(limit=1000)
+                if aggregator.db:
+                    all_threats = aggregator.db.get_recent_threats(limit=1000)
+                else:
+                    all_threats = aggregator._get_fallback_threats()
                 
                 for ioc in ioc_list:
                     # Search for this IOC
@@ -1157,7 +1323,10 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
     
     with col_recent1:
         st.markdown("**🎯 Recent IOCs by Category:**")
-        recent_threats = aggregator.db.get_recent_threats(limit=50)
+        if aggregator.db:
+            recent_threats = aggregator.db.get_recent_threats(limit=50)
+        else:
+            recent_threats = aggregator._get_fallback_threats()
         
         ioc_categories = {}
         for threat in recent_threats:
@@ -1197,8 +1366,12 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
     st.markdown("*Advanced intelligence analytics and strategic insights*")
     
     # Get comprehensive data
-    stats = aggregator.db.get_statistics()
-    threats = aggregator.db.get_recent_threats(limit=500)
+    if aggregator.db:
+        stats = aggregator.db.get_statistics()
+        threats = aggregator.db.get_recent_threats(limit=500)
+    else:
+        stats = {"total_threats": 3, "total_iocs": 8, "sources": 3}
+        threats = aggregator._get_fallback_threats()
     
     if not threats:
         st.info("📈 No data available for analytics. Please refresh feeds first.")
@@ -1370,7 +1543,7 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
                 ioc_data = df[df['ioc_count'].notna() & (df['ioc_count'] >= 0)]
                 
                 if len(ioc_data) > 0:
-                    fig = px.histogram(ioc_data, x='ioc_count', bins=min(20, len(ioc_data)),
+                    fig = px.histogram(ioc_data, x='ioc_count', nbins=min(20, len(ioc_data)),
                                      title="IOC Count Distribution per Threat")
                     st.plotly_chart(fig, use_container_width=True, key="ioc_count_histogram")
                 else:
@@ -1440,7 +1613,11 @@ def main():
         st.markdown("---")
         
         # Quick stats
-        stats = aggregator.db.get_statistics()
+        if aggregator.db:
+            stats = aggregator.db.get_statistics()
+        else:
+            stats = {"total_threats": 3, "total_iocs": 8, "sources": 3}
+            
         st.markdown("### 📈 **Quick Stats**")
         st.metric("Total Threats", stats.get("total_threats", 0))
         st.metric("Total IOCs", stats.get("total_iocs", 0))
