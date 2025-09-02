@@ -142,6 +142,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- Helper Functions ---
+def safe_get_metric(aggregator, key: str, default=0):
+    """Safely get a metric value with comprehensive error handling."""
+    try:
+        if hasattr(aggregator, 'metrics') and aggregator.metrics and isinstance(aggregator.metrics, dict):
+            return aggregator.metrics.get(key, default)
+        return default
+    except (AttributeError, TypeError, KeyError):
+        return default
+
 # --- Elite Aggregator Class ---
 class EliteThreatIntelAggregator:
     """Enterprise-grade threat intelligence orchestrator with advanced features."""
@@ -176,6 +186,22 @@ class EliteThreatIntelAggregator:
             # Initialize in fallback mode
             self.db = None
             self.fallback_mode = True
+            
+            # Initialize metrics even in fallback mode
+            self.metrics = {
+                "feeds_processed": 0,
+                "threats_analyzed": 0,
+                "iocs_extracted": 0,
+                "last_update": datetime.now().isoformat(),
+                "ai_requests": 0,
+                "alerts_generated": 0
+            }
+            
+            # Initialize fallback cache attributes
+            self._threat_cache = None
+            self._cache_timestamp = 0
+            self._cache_duration = 300  # 5 minutes
+            
             st.warning(f"⚠️ Running in fallback mode: {str(e)}")
 
     def get_cached_threats(self, limit: int = 50):
@@ -402,35 +428,35 @@ def render_elite_metrics(aggregator: EliteThreatIntelAggregator):
         st.metric(
             label="🎯 Total Threats",
             value=stats.get("total_threats", 0),
-            delta=f"+{aggregator.metrics.get('threats_analyzed', 0) if hasattr(aggregator, 'metrics') else 0} today"
+            delta=f"+{safe_get_metric(aggregator, 'threats_analyzed', 0)} today"
         )
     
     with col2:
         st.metric(
             label="🔍 Total IOCs",
             value=stats.get("total_iocs", 0),
-            delta=f"+{aggregator.metrics.get('iocs_extracted', 0) if hasattr(aggregator, 'metrics') else 0} extracted"
+            delta=f"+{safe_get_metric(aggregator, 'iocs_extracted', 0)} extracted"
         )
     
     with col3:
         st.metric(
             label="📡 Active Sources",
             value=len(Config.THREAT_FEEDS) if hasattr(Config, 'THREAT_FEEDS') else 7,
-            delta=f"{aggregator.metrics.get('feeds_processed', 0) if hasattr(aggregator, 'metrics') else 0} processed"
+            delta=f"{safe_get_metric(aggregator, 'feeds_processed', 0)} processed"
         )
     
     with col4:
         api_keys = getattr(Config, 'GEMINI_API_KEYS', [])
         st.metric(
             label="🤖 AI Requests",
-            value=aggregator.metrics.get("ai_requests", 0) if hasattr(aggregator, 'metrics') else 0,
+            value=safe_get_metric(aggregator, "ai_requests", 0),
             delta=f"Load balanced across {len(api_keys)} keys" if api_keys else "Rule-based analysis"
         )
     
     with col5:
         st.metric(
             label="🚨 Critical Alerts",
-            value=aggregator.metrics.get("alerts_generated", 0) if hasattr(aggregator, 'metrics') else 0,
+            value=safe_get_metric(aggregator, "alerts_generated", 0),
             delta="Real-time monitoring"
         )
 
@@ -1570,11 +1596,47 @@ def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
 def main():
     """Main application entry point with elite features."""
     
-    # Initialize session state
+    # Initialize session state with comprehensive error handling
     if 'aggregator' not in st.session_state:
-        st.session_state.aggregator = EliteThreatIntelAggregator()
+        try:
+            st.session_state.aggregator = EliteThreatIntelAggregator()
+        except Exception as e:
+            st.error(f"Failed to initialize aggregator: {e}")
+            # Create a minimal fallback aggregator
+            class FallbackAggregator:
+                def __init__(self):
+                    self.metrics = {
+                        "feeds_processed": 0,
+                        "threats_analyzed": 0,
+                        "iocs_extracted": 0,
+                        "last_update": datetime.now().isoformat(),
+                        "ai_requests": 0,
+                        "alerts_generated": 0
+                    }
+                    self.fallback_mode = True
+                    self.db = None
+                
+                def _get_fallback_threats(self):
+                    from src.core.models import ThreatIntelItem
+                    return []
+                
+                def get_cached_threats(self, limit=50):
+                    return []
+            
+            st.session_state.aggregator = FallbackAggregator()
     
     aggregator = st.session_state.aggregator
+    
+    # Additional safety check for aggregator
+    if not hasattr(aggregator, 'metrics'):
+        aggregator.metrics = {
+            "feeds_processed": 0,
+            "threats_analyzed": 0,
+            "iocs_extracted": 0,
+            "last_update": datetime.now().isoformat(),
+            "ai_requests": 0,
+            "alerts_generated": 0
+        }
     
     # Elite sidebar navigation
     with st.sidebar:
@@ -1596,19 +1658,26 @@ def main():
         st.markdown(f"📡 **Feed Sources:** {len(Config.THREAT_FEEDS)} configured")
         st.markdown(f"🤖 **AI Models:** {len(Config.GEMINI_MODELS)} available")
         
-        if aggregator.metrics.get("last_update"):
-            try:
-                # Handle both timestamp and ISO format
-                last_update_value = aggregator.metrics["last_update"]
-                if isinstance(last_update_value, (int, float)):
-                    # Unix timestamp
-                    last_update = datetime.fromtimestamp(last_update_value)
-                else:
-                    # ISO format string
-                    last_update = datetime.fromisoformat(last_update_value)
-                st.markdown(f"🕒 **Last Update:** {last_update.strftime('%H:%M:%S')}")
-            except (ValueError, OSError, TypeError) as e:
-                st.markdown("🕒 **Last Update:** Unknown")
+        # Safe access to metrics with fallback - completely defensive approach
+        try:
+            has_metrics = hasattr(aggregator, 'metrics') and aggregator.metrics is not None
+            if has_metrics and isinstance(aggregator.metrics, dict) and aggregator.metrics.get("last_update"):
+                try:
+                    # Handle both timestamp and ISO format
+                    last_update_value = aggregator.metrics["last_update"]
+                    if isinstance(last_update_value, (int, float)):
+                        # Unix timestamp
+                        last_update = datetime.fromtimestamp(last_update_value)
+                    else:
+                        # ISO format string
+                        last_update = datetime.fromisoformat(last_update_value)
+                    st.markdown(f"🕒 **Last Update:** {last_update.strftime('%H:%M:%S')}")
+                except (ValueError, OSError, TypeError, KeyError) as e:
+                    st.markdown("🕒 **Last Update:** Processing...")
+            else:
+                st.markdown("🕒 **Last Update:** Initializing...")
+        except Exception as e:
+            st.markdown("🕒 **Last Update:** System starting...")
         
         st.markdown("---")
         

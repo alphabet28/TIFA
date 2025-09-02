@@ -5,6 +5,7 @@ Handles all interactions with the SQLite database.
 import sqlite3
 import json
 import logging
+import os
 from typing import List, Dict, Any
 from .models import ThreatIntelItem
 from .config import Config
@@ -17,6 +18,20 @@ class ThreatIntelDatabase:
     def __init__(self, db_path: str = Config.DB_PATH):
         """Initializes the database and creates the necessary table if it doesn't exist."""
         self.db_path = db_path
+        
+        # Create the directory if it doesn't exist (for local development)
+        try:
+            import os
+            db_dir = os.path.dirname(self.db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+        except Exception as e:
+            logger.warning(f"Could not create database directory: {e}")
+            # Fallback to memory database or current directory
+            if not os.access(os.path.dirname(self.db_path) or '.', os.W_OK):
+                logger.warning("Database directory not writable, using memory database")
+                self.db_path = ":memory:"
+        
         self._create_table()
 
     def _create_table(self):

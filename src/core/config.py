@@ -43,7 +43,7 @@ class Config:
     AI_PROVIDER = "gemini"
     
     @classmethod
-    def get_random_api_key(cls) -> str:
+    def get_random_api_key(cls) -> str | None:
         """Returns a random API key for load balancing."""
         return random.choice(cls.GEMINI_API_KEYS) if cls.GEMINI_API_KEYS else None
 
@@ -76,7 +76,26 @@ class Config:
     ]
 
     # --- Database Configuration ---
+    # Try to use a writable location, fallback to memory database if needed
     DB_PATH = os.getenv("DATABASE_PATH", "data/threat_intel.db")
+    
+    # For Streamlit Cloud deployment, check if we can write to the specified path
+    try:
+        import tempfile
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir and not os.path.exists(db_dir):
+            # Try to create the directory
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+            except (OSError, PermissionError):
+                # If we can't create the data directory, use temp directory
+                DB_PATH = os.path.join(tempfile.gettempdir(), "threat_intel.db")
+        elif db_dir and not os.access(db_dir, os.W_OK):
+            # If directory exists but not writable, use temp directory
+            DB_PATH = os.path.join(tempfile.gettempdir(), "threat_intel.db")
+    except Exception:
+        # Ultimate fallback - use memory database
+        pass
     
     # --- Advanced Application Settings ---
     APP_TITLE = os.getenv("APP_TITLE", "🛡️ TIFA - Elite Threat Intelligence Aggregator")
