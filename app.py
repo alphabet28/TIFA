@@ -447,11 +447,11 @@ def render_elite_metrics(aggregator: EliteThreatIntelAggregator):
         )
     
     with col4:
-        api_keys = getattr(Config, 'GEMINI_API_KEYS', [])
+        active_api_keys = Config.get_active_api_key_count()
         st.metric(
             label="🤖 AI Requests",
             value=safe_get_metric(aggregator, "ai_requests", 0),
-            delta=f"Load balanced across {len(api_keys)} keys" if api_keys else "Rule-based analysis"
+            delta=f"Load balanced across {active_api_keys} keys" if active_api_keys > 0 else "Rule-based analysis"
         )
     
     with col5:
@@ -1659,9 +1659,33 @@ def main():
         
         st.markdown("---")
         
-        # System status
+        # System status with enhanced API key detection
         st.markdown("### 📡 **System Status**")
-        st.markdown(f"🔑 **API Keys:** {len(Config.GEMINI_API_KEYS)} active")
+        
+        # Enhanced API key status with debug info
+        active_keys = Config.get_active_api_key_count()
+        total_keys = len(Config.GEMINI_API_KEYS)
+        api_status = Config.get_api_key_status()
+        
+        if active_keys > 0:
+            st.markdown(f"🔑 **API Keys:** {active_keys} active ({total_keys} total)")
+        else:
+            st.markdown(f"🔑 **API Keys:** {active_keys} active (⚠️ Configure in Streamlit secrets)")
+            
+            # Debug panel for API key configuration
+            with st.expander("🔧 **API Key Debug Info**", expanded=False):
+                st.markdown("**Configuration Status:**")
+                st.write(f"- Environment variables detected: {api_status['has_env_vars']}")
+                st.write(f"- Total configured keys: {api_status['total_configured']}")
+                st.write(f"- Valid keys: {api_status['valid_keys']}")
+                
+                st.markdown("**For Streamlit Cloud:**")
+                st.info("""
+                Add these secrets in your Streamlit Cloud app settings:
+                - `GEMINI_API_KEY_1` = your_first_api_key
+                - `GEMINI_API_KEY_2` = your_second_api_key
+                """)
+        
         st.markdown(f"📡 **Feed Sources:** {len(Config.THREAT_FEEDS)} configured")
         st.markdown(f"🤖 **AI Models:** {len(Config.GEMINI_MODELS)} available")
         

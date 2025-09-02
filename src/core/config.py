@@ -12,24 +12,58 @@ class Config:
     load_dotenv()
 
     # --- Multi-API Key Load Balancing System ---
-    # Try Streamlit secrets first, fallback to environment variables
+    # Enhanced API key detection for both local and Streamlit Cloud environments
+    GEMINI_API_KEYS = []
+    
+    # Method 1: Try Streamlit secrets (for Streamlit Cloud)
     try:
         import streamlit as st
         if hasattr(st, 'secrets'):
-            GEMINI_API_KEYS = [
+            potential_keys = [
                 st.secrets.get("GEMINI_API_KEY_1"),
-                st.secrets.get("GEMINI_API_KEY_2")
+                st.secrets.get("GEMINI_API_KEY_2"),
+                st.secrets.get("GEMINI_API_KEY"),  # Single key fallback
             ]
-        else:
-            raise ImportError("Streamlit not available")
-    except (ImportError, AttributeError):
-        GEMINI_API_KEYS = [
-            os.getenv("GEMINI_API_KEY_1"),
-            os.getenv("GEMINI_API_KEY_2")
-        ]
+            GEMINI_API_KEYS.extend([key for key in potential_keys if key and key.strip()])
+    except (ImportError, AttributeError, Exception):
+        pass
     
-    # Filter out None values
-    GEMINI_API_KEYS = [key for key in GEMINI_API_KEYS if key]
+    # Method 2: Try environment variables (for local development and fallback)
+    env_keys = [
+        os.getenv("GEMINI_API_KEY_1"),
+        os.getenv("GEMINI_API_KEY_2"),
+        os.getenv("GEMINI_API_KEY"),  # Single key fallback
+    ]
+    GEMINI_API_KEYS.extend([key for key in env_keys if key and key.strip()])
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_keys = []
+    for key in GEMINI_API_KEYS:
+        if key not in seen:
+            seen.add(key)
+            unique_keys.append(key)
+    GEMINI_API_KEYS = unique_keys
+    
+    @classmethod
+    def get_active_api_key_count(cls) -> int:
+        """Get the actual count of active/valid API keys."""
+        valid_keys = []
+        for key in cls.GEMINI_API_KEYS:
+            if key and key.strip() and len(key.strip()) > 20:  # Basic validation
+                valid_keys.append(key)
+        return len(valid_keys)
+    
+    @classmethod 
+    def get_api_key_status(cls) -> dict:
+        """Get detailed API key status for debugging."""
+        return {
+            "total_configured": len(cls.GEMINI_API_KEYS),
+            "valid_keys": cls.get_active_api_key_count(),
+            "has_streamlit_secrets": False,
+            "has_env_vars": any(os.getenv(f"GEMINI_API_KEY_{i}") for i in [1, 2]) or bool(os.getenv("GEMINI_API_KEY")),
+            "key_sources": []
+        }
     
     # Advanced AI Model Options for Different Tasks
     GEMINI_MODELS = {
