@@ -16,7 +16,7 @@ import re
 import threading
 import sqlite3
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -36,8 +36,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': 'https://github.com/Deepam02/TIFA',
-        'Report a bug': "https://github.com/Deepam02/TIFA/issues",
+        'Get Help': 'https://github.com/alphabet28/TIFA',
+        'Report a bug': "https://github.com/alphabet28/TIFA/issues",
         'About': f"# {Config.APP_TITLE}\n{Config.APP_DESCRIPTION}"
     }
 )
@@ -389,7 +389,7 @@ class EliteThreatIntelAggregator:
 # --- Advanced UI Components ---
 def render_elite_header():
     """Render the professional header with live status."""
-    st.markdown('<h1 class="main-header">🛡️ TIFA - Elite Threat Intelligence Aggregator</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header"> TIFA - Elite Threat Intelligence Aggregator</h1>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
@@ -408,7 +408,7 @@ def render_elite_header():
         current_time = datetime.now().strftime("%H:%M:%S UTC")
         st.markdown(f"🕒 **{current_time}**")
 
-def render_elite_metrics(aggregator: EliteThreatIntelAggregator):
+def render_elite_metrics(aggregator: Union[EliteThreatIntelAggregator, Any]):
     """Render real-time metrics dashboard with fallback support."""
     st.markdown("## 📊 Real-Time Intelligence Metrics")
     
@@ -589,7 +589,7 @@ def render_elite_threat_item(item: ThreatIntelItem, show_correlations=True):
             st.markdown("**🔗 Similar Threats:**")
             st.info("💡 Advanced correlation engine coming soon...")
 
-def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
+def render_elite_dashboard(aggregator: Union[EliteThreatIntelAggregator, Any]):
     """Main elite dashboard with advanced features and fallback data."""
     render_elite_header()
     render_elite_metrics(aggregator)
@@ -915,7 +915,7 @@ def render_elite_dashboard(aggregator: EliteThreatIntelAggregator):
         
         render_elite_threat_item(item)
 
-def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
+def render_elite_ioc_search(aggregator: Union[EliteThreatIntelAggregator, Any]):
     """Enhanced IOC Hunter with advanced search and analysis capabilities."""
     st.markdown("## 🔍 Elite IOC Hunter & Analysis")
     st.markdown("*Advanced IOC search, correlation, and threat intelligence analysis*")
@@ -1387,7 +1387,7 @@ def render_elite_ioc_search(aggregator: EliteThreatIntelAggregator):
         del st.session_state.ioc_search_query
         st.rerun()
 
-def render_elite_analytics(aggregator: EliteThreatIntelAggregator):
+def render_elite_analytics(aggregator: Union[EliteThreatIntelAggregator, Any]):
     """Advanced analytics and visualization dashboard."""
     st.markdown("## 📊 Elite Threat Analytics")
     st.markdown("*Advanced intelligence analytics and strategic insights*")
@@ -1732,9 +1732,7 @@ def main():
         🤖 Multi-model AI analysis  
         🔍 Advanced IOC correlation  
         📊 Enterprise analytics  
-        🚨 Intelligent alerting  
-        
-        Built for hackathon excellence! 🏆
+        🚨 Intelligent alerting
         """)
     
     # Main content routing
