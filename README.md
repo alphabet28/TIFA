@@ -1,4 +1,4 @@
-# 🛡️ Threat Intelligence Feed Aggregator
+# Threat Intelligence Feed Aggregator
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/streamlit-1.30+-red.svg)](https://streamlit.io/)
@@ -8,8 +8,8 @@
 
 > An AI-powered threat intelligence aggregation platform that consolidates and analyzes cyber threat data from multiple online sources using Google Gemini AI.
 
-## 🌐 Live Demo
-**👉 [Try TIFA Live Platform](https://tifa-societe.streamlit.app/#live-threat-intelligence-feed)**
+## Live Demo
+**👉 [TIFA Live Platform](https://tifa-societe.streamlit.app/#live-threat-intelligence-feed)**
 
 Experience the full platform with real-time threat intelligence feeds, AI-powered analysis, and interactive analytics.
 
